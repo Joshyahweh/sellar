@@ -15,6 +15,8 @@ function mapped(row: {
   back_cover_path?: unknown;
   design_cover_path?: unknown;
   file_path?: unknown;
+  is_display?: unknown;
+  about?: unknown;
 }) {
   return mapProduct({
     id: String(row.id),
@@ -28,6 +30,8 @@ function mapped(row: {
     back_cover_path: row.back_cover_path ? String(row.back_cover_path) : null,
     design_cover_path: row.design_cover_path ? String(row.design_cover_path) : null,
     file_path: row.file_path ? String(row.file_path) : null,
+    is_display: Boolean(row.is_display),
+    about: row.about ? String(row.about) : "",
   });
 }
 
@@ -49,6 +53,24 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
   const existing = await findProduct(id);
   if (!existing) return Response.json({ error: "Product not found." }, { status: 404 });
+
+  if (parsedBody.body.display === true) {
+    const admin = createAdminClient();
+    const { error: clearError } = await admin.from("products").update({ is_display: false }).neq("id", id);
+    if (clearError) {
+      return Response.json({ error: "The display book could not be updated." }, { status: 500 });
+    }
+    const { data, error } = await admin
+      .from("products")
+      .update({ is_display: true })
+      .eq("id", id)
+      .select(productSelect)
+      .single();
+    if (error || !data) {
+      return Response.json({ error: "The display book could not be updated." }, { status: 500 });
+    }
+    return Response.json({ product: mapped(data) });
+  }
 
   const current = mapped(existing);
   const parsed = productUpdateFromInput(current, parsedBody.body);

@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { Suspense } from "react";
 import { AboutAuthor } from "@/components/landing/about-author";
 import { AboutBook } from "@/components/landing/about-book";
@@ -7,7 +8,7 @@ import { Footer } from "@/components/landing/footer";
 import { Hero } from "@/components/landing/hero";
 import { LandingSkeleton } from "@/components/landing/section-skeletons";
 import { Reviews } from "@/components/landing/reviews";
-import { catalogCovers } from "@/lib/products";
+import { catalogCovers, displayAbout } from "@/lib/products";
 import { listBookProducts } from "@/lib/products.server";
 
 type LandingPageProps = {
@@ -15,7 +16,10 @@ type LandingPageProps = {
 };
 
 async function LiveLanding({ signedIn }: { signedIn: boolean }) {
-  const covers = catalogCovers(await listBookProducts());
+  await connection();
+  const products = await listBookProducts();
+  const covers = catalogCovers(products);
+  const display = products.find((product) => product.isDisplay) ?? null;
   return (
     <>
       <Hero signedIn={signedIn} frontCover={covers.front} backCover={covers.back} />
@@ -23,7 +27,7 @@ async function LiveLanding({ signedIn }: { signedIn: boolean }) {
       <Reviews />
       <AboutAuthor />
       <Faq />
-      <AboutBook designCover={covers.design} />
+      <AboutBook designCover={covers.design} paragraphs={displayAbout(display)} />
       <Footer />
     </>
   );

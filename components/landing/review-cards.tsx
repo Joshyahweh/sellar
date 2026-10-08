@@ -1,8 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { CtaButton } from "@/components/landing/cta-button";
+import { usePathname } from "next/navigation";
+import { submitReview } from "@/app/actions/reviews";
+import { CrossIcon } from "@/components/icons";
+import { CtaButton, CtaLink } from "@/components/landing/cta-button";
 import { StarRating } from "@/components/landing/star-rating";
+import { Dialog, DialogClose, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { averageRating, reviewInitials, type BookReview } from "@/lib/reviews";
 import { cn } from "@/lib/utils";
 
@@ -77,8 +81,137 @@ function ReviewCard({
   );
 }
 
-export function ReviewsSection({ reviews }: { reviews: BookReview[] }) {
+const ratingLabels = ["1. Poor", "2. Fair", "3. Good", "4. Very Good", "5. Excellent"];
+
+function RateStar({ selected }: { selected: boolean }) {
+  return (
+    <svg width={20} height={20} viewBox="0 0 20 20" aria-hidden>
+      <path
+        d="M17.7363 6.89648L12.7773 6.17578L10.5605 1.68164C10.5 1.55859 10.4004 1.45898 10.2773 1.39844C9.96875 1.24609 9.59375 1.37305 9.43945 1.68164L7.22266 6.17578L2.26367 6.89648C2.12695 6.91602 2.00195 6.98047 1.90625 7.07812C1.79055 7.19704 1.72679 7.35703 1.72899 7.52293C1.73119 7.68884 1.79916 7.84708 1.91797 7.96289L5.50586 11.4609L4.6582 16.4004C4.63833 16.5153 4.65104 16.6335 4.69491 16.7415C4.73877 16.8496 4.81203 16.9431 4.90638 17.0117C5.00073 17.0802 5.1124 17.1209 5.22871 17.1292C5.34502 17.1375 5.46133 17.113 5.56445 17.0586L10 14.7266L14.4355 17.0586C14.5566 17.123 14.6973 17.1445 14.832 17.1211C15.1719 17.0625 15.4004 16.7402 15.3418 16.4004L14.4941 11.4609L18.082 7.96289C18.1797 7.86719 18.2441 7.74219 18.2637 7.60547C18.3164 7.26367 18.0781 6.94727 17.7363 6.89648Z"
+        fill={selected ? "#FF0C6D" : "none"}
+        stroke={selected ? "#FF0C6D" : "#B7C3CC"}
+        strokeWidth={selected ? 0 : 1.2}
+      />
+    </svg>
+  );
+}
+
+function WriteReviewDialog({ onClose }: { onClose: () => void }) {
+  const [open, setOpen] = useState(true);
+  const [rating, setRating] = useState(0);
+  const [body, setBody] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pending, setPending] = useState(false);
+  const sent = Boolean(notice);
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (pending) return;
+        setOpen(next);
+        if (!next) onClose();
+      }}
+    >
+      <DialogContent
+        showCloseButton={false}
+        overlayClassName="z-[80] bg-[#e4e7f5]/50 supports-backdrop-filter:backdrop-blur-md!"
+        className="z-[80] gap-0 rounded-[16px] bg-white p-0 text-[#14181b] shadow-[0_8px_32px_rgba(20,24,27,0.08)] ring-0 sm:max-w-[686px]"
+      >
+        <form
+          className="px-5 pt-5 pb-6 sm:px-8 sm:pt-6 sm:pb-8"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (rating < 1) {
+              setError("Tap a star to rate this book.");
+              return;
+            }
+            setPending(true);
+            setError(null);
+            const result = await submitReview({ rating, body });
+            setPending(false);
+            if (result.error) {
+              setError(result.error);
+              return;
+            }
+            setNotice(result.message ?? "Your review was sent. It will appear after it is approved.");
+          }}
+        >
+          <div className="flex items-center justify-between border-b border-[#eef1f4] pb-4">
+            <DialogTitle className="m-0 font-normal text-[20px] leading-[100%] text-[#A5A5A5]">
+              Leave a review
+            </DialogTitle>
+            <DialogClose aria-label="Close" className="flex size-5 cursor-pointer items-center justify-center border-0 bg-transparent p-0">
+              <CrossIcon size={20} color="#14181b" />
+            </DialogClose>
+          </div>
+
+          <p className="mt-5 mb-3 font-semibold text-[16px] leading-[20px] tracking-[0.01em] text-[#14181b]">
+            How would you rate this book ?
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {ratingLabels.map((label) => (
+              <p key={label} className="m-0 font-normal text-[12px] leading-[100%] text-[#A5A5A5] sm:text-[14px]">
+                {label}
+              </p>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-[6px]">
+            {ratingLabels.map((label, index) => {
+              const value = index + 1;
+              const selected = value <= rating;
+              return (
+                <button
+                  key={label}
+                  type="button"
+                  aria-label={label}
+                  disabled={sent}
+                  className="border-0 bg-transparent p-0"
+                  onClick={() => setRating(value)}
+                >
+                  <RateStar selected={selected} />
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-1 mb-5 font-normal text-[16px] leading-[100%] text-[#A5A5A5]">Tap to star rate</p>
+
+          <label className="font-semibold text-[16px] leading-[20px] tracking-[0.01em] text-[#14181b]">
+            What do you think about this book ?
+            <span className="relative mt-2 block">
+              <textarea
+                required
+                minLength={8}
+                maxLength={500}
+                value={body}
+                disabled={sent}
+                onChange={(event) => setBody(event.target.value.slice(0, 500))}
+                placeholder="Tell us what you think"
+                className="h-[140px] w-full resize-none rounded-[8px] border border-[#d7e0e6] bg-white px-3 pt-3 pb-8 font-medium text-[16px] leading-[20px] text-[#14181b] outline-none placeholder:font-medium placeholder:text-[#B1BEC6]"
+              />
+              <span className="pointer-events-none absolute right-3 bottom-2 font-medium text-[12px] leading-[20px] text-[#A5A5A5]">
+                {body.length}/500
+              </span>
+            </span>
+          </label>
+
+          {error ? <p className="mt-3 mb-0 text-[14px] text-[#b42318]">{error}</p> : null}
+          {notice ? <p className="mt-3 mb-0 text-[14px] leading-[20px] text-[#296cf0]">{notice}</p> : null}
+
+          <CtaButton type="submit" disabled={pending || sent} className="mt-4 h-[52px] w-full text-[16px]">
+            Publish review
+          </CtaButton>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function ReviewsSection({ reviews, signedIn = false }: { reviews: BookReview[]; signedIn?: boolean }) {
+  const pathname = usePathname();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [writing, setWriting] = useState(false);
   const fitsDesktopFrame = reviews.length <= 3 && openIndex === null;
   const score = averageRating(reviews);
 
@@ -119,9 +252,15 @@ export function ReviewsSection({ reviews }: { reviews: BookReview[] }) {
               </div>
             </div>
           </div>
-          <CtaButton variant="outline" className="w-full sm:w-auto">
-            Write a review
-          </CtaButton>
+          {signedIn ? (
+            <CtaButton variant="outline" className="w-full sm:w-auto" onClick={() => setWriting(true)}>
+              Write a review
+            </CtaButton>
+          ) : (
+            <CtaLink href={`/sign-in?next=${encodeURIComponent(`${pathname}#reviews`)}`} variant="outline" className="w-full sm:w-auto">
+              Write a review
+            </CtaLink>
+          )}
         </div>
         <div className="flex w-full items-start desk:w-[868px]">
           <div className="flex min-w-px flex-1 flex-col items-start gap-4 desk:gap-[19px]">
@@ -137,6 +276,7 @@ export function ReviewsSection({ reviews }: { reviews: BookReview[] }) {
           </div>
         </div>
       </div>
+      {writing ? <WriteReviewDialog onClose={() => setWriting(false)} /> : null}
     </section>
   );
 }

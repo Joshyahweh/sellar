@@ -11,10 +11,11 @@ export async function listReviews(): Promise<BookReview[]> {
   });
   const { data, error } = await supabase
     .from("reviews")
-    .select("id, author_name, rating, body, created_at")
+    .select("id, author_name, rating, body, created_at, status, rejection_reason")
+    .eq("status", "approved")
     .order("created_at", { ascending: false });
 
-  if (error || !data?.length) return defaultReviews;
+  if (error || !data) return defaultReviews;
   return data.map((row) =>
     mapReview({
       id: String(row.id),
@@ -22,6 +23,8 @@ export async function listReviews(): Promise<BookReview[]> {
       rating: Number(row.rating),
       body: String(row.body),
       created_at: String(row.created_at),
+      status: String(row.status),
+      rejection_reason: row.rejection_reason ? String(row.rejection_reason) : null,
     }),
   );
 }

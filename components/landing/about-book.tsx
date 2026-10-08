@@ -1,6 +1,19 @@
 import { BookCover } from "@/components/landing/book-cover";
 
-export function AboutBook({ designCover = null }: { designCover?: string | null }) {
+const defaultParagraphs = [
+  "The author is a passionate storyteller whose work is rooted in the belief that every experience carries a story worth telling. With a deep appreciation for human connection, personal growth, and the complexity of everyday life, their writing explores the moments that shape us and the choices that define who we become.",
+  "Writing has always been more than putting words on a page. For the author, it is a way of observing the world, asking difficult questions, exploring different perspectives, and creating something that readers can see themselves in. Their approach to storytelling combines honesty, emotion, imagination, and a strong understanding of the human experience.",
+  "Through this book, the author invites readers into a world built around meaningful experiences, compelling ideas, and authentic emotion. Each chapter is an opportunity to pause, reflect, and discover something new—whether about the characters, the circumstances they encounter, or perhaps even about themselves.",
+];
+
+export function AboutBook({
+  designCover = null,
+  paragraphs = null,
+}: {
+  designCover?: string | null;
+  paragraphs?: string[] | null;
+}) {
+  const copy = paragraphs?.length ? paragraphs : defaultParagraphs;
   return (
     <section
       id="about-book"
@@ -13,28 +26,14 @@ export function AboutBook({ designCover = null }: { designCover?: string | null 
         <div className="flex w-full flex-col items-center justify-center desk:h-[288px] desk:items-end">
           <div className="flex w-full flex-col-reverse items-center gap-6 md:flex-row md:justify-center desk:gap-[66px]">
             <div className="w-full font-normal text-[15px] text-[#626262] desk:w-[707px] desk:text-[16px]">
-              <p className="mb-0 leading-[24px]">
-                The author is a passionate storyteller whose work is rooted in
-                the belief that every experience carries a story worth telling.
-                With a deep appreciation for human connection, personal growth,
-                and the complexity of everyday life, their writing explores the
-                moments that shape us and the choices that define who we become.
-              </p>
-              <p className="mb-0 leading-[24px]">
-                Writing has always been more than putting words on a page. For
-                the author, it is a way of observing the world, asking difficult
-                questions, exploring different perspectives, and creating
-                something that readers can see themselves in. Their approach to
-                storytelling combines honesty, emotion, imagination, and a
-                strong understanding of the human experience.
-              </p>
-              <p className="leading-[24px]">
-                Through this book, the author invites readers into a world built
-                around meaningful experiences, compelling ideas, and authentic
-                emotion. Each chapter is an opportunity to pause, reflect, and
-                discover something new—whether about the characters, the
-                circumstances they encounter, or perhaps even about themselves.
-              </p>
+              {copy.map((paragraph, index) => (
+                <p
+                  key={`${index}-${paragraph.slice(0, 24)}`}
+                  className={index === copy.length - 1 ? "leading-[24px]" : "mb-0 leading-[24px]"}
+                >
+                  {paragraph}
+                </p>
+              ))}
             </div>
             <BookCover src={designCover} width={185.313} height={258} alt="Design cover" className="shrink-0" />
           </div>

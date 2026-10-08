@@ -129,6 +129,8 @@ export async function pageBooks(
       back_cover_path: row.back_cover_path ? String(row.back_cover_path) : null,
       design_cover_path: row.design_cover_path ? String(row.design_cover_path) : null,
       file_path: row.file_path ? String(row.file_path) : null,
+      is_display: Boolean(row.is_display),
+      about: row.about ? String(row.about) : "",
     }),
   );
   return pageResult(items, filters.page, count ?? items.length);

@@ -21,6 +21,7 @@ type Draft = {
   kind: "hard_copy" | "e_copy";
   priceNaira: string;
   deliveryNaira: string;
+  about: string;
 };
 
 type CoverFiles = {
@@ -39,6 +40,7 @@ const emptyDraft: Draft = {
   kind: "hard_copy",
   priceNaira: "",
   deliveryNaira: "",
+  about: "",
 };
 
 function kindLabel(kind: string) {
@@ -82,6 +84,7 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
       kind: product.kind,
       priceNaira: nairaInput(product.priceKobo),
       deliveryNaira: nairaInput(product.deliveryFeeKobo),
+      about: product.about,
     });
   }
 
@@ -95,7 +98,8 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
         slug,
         kind: draft.kind === "e_copy" ? "e-book" : "hard-copy",
         priceNaira: draft.priceNaira,
-        deliveryFeeNaira: draft.deliveryNaira,
+        about: draft.about,
+        ...(draft.kind === "hard_copy" ? { deliveryFeeNaira: draft.deliveryNaira } : {}),
       };
       const saved = (await adminWrite(
         draft.id ? `/api/products/${draft.id}` : "/api/products",
@@ -159,7 +163,21 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
     },
   });
 
-  const pending = saveMutation.isPending || deleteMutation.isPending;
+  const displayMutation = useMutation({
+    mutationFn: async (product: BookProduct) => {
+      if (!product.id) throw new Error("This book cannot be displayed.");
+      await adminWrite(`/api/products/${product.id}`, "PATCH", { display: true });
+    },
+    onSuccess: async () => {
+      setError("");
+      await refresh();
+    },
+    onError: (caught) => {
+      setError(caught instanceof Error ? caught.message : "The display book could not be updated.");
+    },
+  });
+
+  const pending = saveMutation.isPending || deleteMutation.isPending || displayMutation.isPending;
 
   function remove(product: BookProduct) {
     if (!product.id) return;
@@ -216,14 +234,21 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
           </label>
           <label className={`${labelClass} sm:col-span-2`}>
             Description
-            <textarea className={`${fieldClass} h-24 py-2`} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+            <textarea className={`${fieldClass} h-24 py-2`} maxLength={500} value={draft.description} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
+          </label>
+          <label className={`${labelClass} sm:col-span-2`}>
+            About this book
+            <span className="font-normal text-[#626262]">Shown in About this book when this book is on display. Separate paragraphs with a blank line.</span>
+            <textarea className={`${fieldClass} h-32 py-2`} maxLength={4000} value={draft.about} onChange={(event) => setDraft({ ...draft, about: event.target.value })} />
           </label>
           <label className={labelClass}>
             Format
             <Select
               value={draft.kind}
               onValueChange={(value) => {
-                if (value === "hard_copy" || value === "e_copy") setDraft({ ...draft, kind: value });
+                if (value === "hard_copy" || value === "e_copy") {
+                  setDraft({ ...draft, kind: value, deliveryNaira: value === "e_copy" ? "" : draft.deliveryNaira });
+                }
               }}
             >
               <SelectTrigger className="h-10 w-full rounded-lg border-[#e4e8eb] bg-white px-3 text-[14px]">
@@ -241,10 +266,12 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
             Price (NGN)
             <input className={fieldClass} inputMode="decimal" value={draft.priceNaira} required onChange={(event) => setDraft({ ...draft, priceNaira: event.target.value })} />
           </label>
-          <label className={labelClass}>
-            Delivery fee (NGN)
-            <input className={fieldClass} inputMode="decimal" value={draft.deliveryNaira} required onChange={(event) => setDraft({ ...draft, deliveryNaira: event.target.value })} />
-          </label>
+          {draft.kind === "hard_copy" ? (
+            <label className={labelClass}>
+              Delivery fee (NGN)
+              <input className={fieldClass} inputMode="decimal" value={draft.deliveryNaira} required onChange={(event) => setDraft({ ...draft, deliveryNaira: event.target.value })} />
+            </label>
+          ) : null}
           <div className="grid gap-3 sm:col-span-2 sm:grid-cols-3">
             <CoverField
               label="Front cover"
@@ -291,7 +318,7 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
         <table className="w-full min-w-[720px] border-collapse text-left text-[14px]">
           <thead>
             <tr className="border-b border-[#f2f3f8] text-[12px] tracking-[0.04em] text-[#626262] uppercase">
-              {["Name", "Format", "Covers", "File", "Slug", "Price", "Delivery", ""].map((column) => (
+              {["Name", "Format", "Display", "Covers", "File", "Slug", "Price", "Delivery", ""].map((column) => (
                 <th key={column || "actions"} className="px-4 py-3 font-medium">{column}</th>
               ))}
             </tr>
@@ -299,13 +326,28 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
           <tbody>
             {products.length === 0 ? (
               <tr>
-                <td className="px-4 py-10 text-center text-[#626262]" colSpan={8}>No books match these filters.</td>
+                <td className="px-4 py-10 text-center text-[#626262]" colSpan={9}>No books match these filters.</td>
               </tr>
             ) : (
               products.map((product) => (
                 <tr key={product.id ?? product.slug} className="border-b border-[#f2f3f8] last:border-0">
                   <td className="px-4 py-3">{product.name}</td>
                   <td className="px-4 py-3">{kindLabel(product.kind)}</td>
+                  <td className="px-4 py-3">
+                    {product.isDisplay ? (
+                      <span className="font-semibold text-[#296cf0]">On display</span>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={pending || !product.id}
+                        onClick={() => displayMutation.mutate(product)}
+                      >
+                        Set as display
+                      </Button>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
                       <CoverThumb url={product.frontCoverUrl} label="Front cover" />
@@ -316,7 +358,7 @@ export function BooksManager({ firstPage }: { firstPage: ListPage<BookProduct> }
                   <td className="px-4 py-3">{product.kind === "e_copy" ? (product.hasEbook ? "Stored" : "—") : "—"}</td>
                   <td className="px-4 py-3">{product.slug}</td>
                   <td className="px-4 py-3">{formatNgn(product.priceKobo)}</td>
-                  <td className="px-4 py-3">{formatNgn(product.deliveryFeeKobo)}</td>
+                  <td className="px-4 py-3">{product.kind === "e_copy" ? "—" : formatNgn(product.deliveryFeeKobo)}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <Button type="button" variant="outline" size="sm" onClick={() => edit(product)}>Edit</Button>

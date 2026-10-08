@@ -110,8 +110,10 @@ function summarize(orders: CustomerOrder[], products: BookProduct[], reviews: Bo
     orderCount: orders.length,
     paidCount: paid.length,
     productCount: products.length,
-    reviewCount: reviews.length,
-    averageRating: reviews.length === 0 ? 0 : averageRating(reviews),
+    reviewCount: reviews.filter((review) => review.status === "approved").length,
+    averageRating: reviews.filter((review) => review.status === "approved").length === 0
+      ? 0
+      : averageRating(reviews.filter((review) => review.status === "approved")),
     revenueByProduct: [...productNames.entries()].map(([label, value]) => ({ label, ...value })),
     revenueByDay: [...days.entries()]
       .sort(([left], [right]) => left.localeCompare(right))
@@ -221,6 +223,8 @@ export async function loadProducts(admin: SupabaseClient) {
       back_cover_path: row.back_cover_path ? String(row.back_cover_path) : null,
       design_cover_path: row.design_cover_path ? String(row.design_cover_path) : null,
       file_path: row.file_path ? String(row.file_path) : null,
+      is_display: Boolean(row.is_display),
+      about: row.about ? String(row.about) : "",
     }),
   ) satisfies BookProduct[];
 }
@@ -228,7 +232,7 @@ export async function loadProducts(admin: SupabaseClient) {
 export async function loadReviews(admin: SupabaseClient) {
   const { data, error } = await admin
     .from("reviews")
-    .select("id, author_name, rating, body, created_at")
+    .select("id, author_name, rating, body, created_at, status, rejection_reason")
     .order("created_at", { ascending: false });
   if (error || !data) return [];
   return data.map((row) =>
@@ -238,6 +242,8 @@ export async function loadReviews(admin: SupabaseClient) {
       rating: Number(row.rating),
       body: String(row.body),
       created_at: String(row.created_at),
+      status: String(row.status),
+      rejection_reason: row.rejection_reason ? String(row.rejection_reason) : null,
     }),
   );
 }

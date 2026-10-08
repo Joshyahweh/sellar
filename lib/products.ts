@@ -12,10 +12,12 @@ export type BookProduct = {
   backCoverUrl: string | null;
   designCoverUrl: string | null;
   hasEbook: boolean;
+  isDisplay: boolean;
+  about: string;
 };
 
 export const productSelect =
-  "id, slug, name, description, price_kobo, delivery_fee_kobo, kind, front_cover_path, back_cover_path, design_cover_path, file_path";
+  "id, slug, name, description, price_kobo, delivery_fee_kobo, kind, front_cover_path, back_cover_path, design_cover_path, file_path, is_display, about";
 
 export function coverPublicUrl(path: string | null | undefined) {
   if (!path) return null;
@@ -25,9 +27,12 @@ export function coverPublicUrl(path: string | null | undefined) {
 }
 
 export function catalogCovers(products: BookProduct[]) {
-  const ranked = [...products].sort(
-    (left, right) => Number(left.kind === "e_copy") - Number(right.kind === "e_copy"),
-  );
+  const display = products.find((product) => product.isDisplay);
+  const ranked = display
+    ? [display]
+    : [...products].sort(
+        (left, right) => Number(left.kind === "e_copy") - Number(right.kind === "e_copy"),
+      );
   const first = (pick: (product: BookProduct) => string | null) =>
     ranked.map(pick).find((url): url is string => Boolean(url)) ?? null;
 
@@ -51,6 +56,8 @@ export const defaultBookProducts: BookProduct[] = [
     backCoverUrl: null,
     designCoverUrl: null,
     hasEbook: false,
+    isDisplay: false,
+    about: "",
   },
   {
     id: null,
@@ -64,6 +71,8 @@ export const defaultBookProducts: BookProduct[] = [
     backCoverUrl: null,
     designCoverUrl: null,
     hasEbook: false,
+    isDisplay: false,
+    about: "",
   },
 ];
 
@@ -115,6 +124,7 @@ export function productFromInput(input: {
   priceNaira?: unknown;
   deliveryFeeKobo?: unknown;
   deliveryFeeNaira?: unknown;
+  about?: unknown;
 }) {
   const defaults = defaultProductFor(input.kind);
   const name = String(input.name ?? "").trim() || defaults.name;
@@ -127,27 +137,38 @@ export function productFromInput(input: {
         : moneyToKobo(Number(input.priceNaira) * 100)
       : moneyToKobo(input.priceKobo);
   const deliveryFeeKobo =
-    input.deliveryFeeKobo === undefined ||
-    input.deliveryFeeKobo === null ||
-    input.deliveryFeeKobo === ""
-      ? input.deliveryFeeNaira === undefined ||
-        input.deliveryFeeNaira === null ||
-        input.deliveryFeeNaira === ""
-        ? defaults.deliveryFeeKobo
-        : moneyToKobo(Number(input.deliveryFeeNaira) * 100)
-      : moneyToKobo(input.deliveryFeeKobo);
+    input.kind === "e_copy"
+      ? 0
+      : input.deliveryFeeKobo === undefined ||
+          input.deliveryFeeKobo === null ||
+          input.deliveryFeeKobo === ""
+        ? input.deliveryFeeNaira === undefined ||
+          input.deliveryFeeNaira === null ||
+          input.deliveryFeeNaira === ""
+          ? defaults.deliveryFeeKobo
+          : moneyToKobo(Number(input.deliveryFeeNaira) * 100)
+        : moneyToKobo(input.deliveryFeeKobo);
 
   if (name.length < 2 || name.length > 80) {
     return { error: "Name must be between 2 and 80 characters." };
   }
+  const about = String(input.about ?? "").trim();
   if (description.length > 500) {
     return { error: "Description must be 500 characters or fewer." };
+  }
+  if (about.length > 4000) {
+    return { error: "About this book must be 4000 characters or fewer." };
   }
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
     return { error: "Slug can only use lowercase letters, numbers, and hyphens." };
   }
   if (priceKobo === null || deliveryFeeKobo === null) {
-    return { error: "Price and delivery fee must be zero or greater." };
+    return {
+      error:
+        input.kind === "e_copy"
+          ? "Price must be zero or greater."
+          : "Price and delivery fee must be zero or greater.",
+    };
   }
 
   return {
@@ -158,6 +179,7 @@ export function productFromInput(input: {
       price_kobo: priceKobo,
       delivery_fee_kobo: deliveryFeeKobo,
       kind: input.kind,
+      about,
     },
   };
 }
@@ -173,6 +195,7 @@ export function productUpdateFromInput(
     priceNaira?: unknown;
     deliveryFeeKobo?: unknown;
     deliveryFeeNaira?: unknown;
+    about?: unknown;
   },
 ) {
   const kind =
@@ -194,6 +217,7 @@ export function productUpdateFromInput(
     priceNaira: priceProvided ? input.priceNaira : undefined,
     deliveryFeeKobo: deliveryProvided ? input.deliveryFeeKobo : existing.deliveryFeeKobo,
     deliveryFeeNaira: deliveryProvided ? input.deliveryFeeNaira : undefined,
+    about: input.about === undefined ? existing.about : input.about,
   });
 }
 
@@ -209,6 +233,8 @@ export function mapProduct(row: {
   back_cover_path?: string | null;
   design_cover_path?: string | null;
   file_path?: string | null;
+  is_display?: boolean | null;
+  about?: string | null;
 }): BookProduct {
   return {
     id: row.id,
@@ -222,5 +248,13 @@ export function mapProduct(row: {
     backCoverUrl: coverPublicUrl(row.back_cover_path),
     designCoverUrl: coverPublicUrl(row.design_cover_path),
     hasEbook: Boolean(row.file_path),
+    isDisplay: Boolean(row.is_display),
+    about: row.about ? String(row.about) : "",
   };
+}
+
+export function displayAbout(product: BookProduct | null | undefined) {
+  const text = product?.about.trim() ?? "";
+  if (!text) return null;
+  return text.split(/\n{2,}/).map((paragraph) => paragraph.trim()).filter(Boolean);
 }

@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 type VerifyResult =
-  | { ok: true; orderId: string }
+  | { ok: true; orderId: string; kind: string | null; slug: string | null }
   | { ok: false; message: string };
 
 type PaystackVerifyResponse = {
@@ -40,7 +40,7 @@ export async function confirmPaystackReference(reference: string): Promise<Verif
   const admin = createAdminClient();
   const { data: order, error } = await admin
     .from("orders")
-    .select("id, amount_kobo, status, products(kind)")
+    .select("id, amount_kobo, status, products(kind, slug)")
     .eq("paystack_reference", reference)
     .maybeSingle();
 
@@ -52,9 +52,12 @@ export async function confirmPaystackReference(reference: string): Promise<Verif
     return { ok: false, message: "The paid amount does not match this order." };
   }
 
+  const product = Array.isArray(order.products) ? order.products[0] : order.products;
+  const kind = product?.kind ? String(product.kind) : null;
+  const slug = product?.slug ? String(product.slug) : null;
+
   if (order.status === "pending") {
-    const product = Array.isArray(order.products) ? order.products[0] : order.products;
-    const status = product?.kind === "e_copy" ? "delivered" : "awaiting";
+    const status = kind === "e_copy" ? "delivered" : "awaiting";
     const paidAt = payload.data.paid_at ?? new Date().toISOString();
 
     const { error: updateError } = await admin
@@ -83,7 +86,7 @@ export async function confirmPaystackReference(reference: string): Promise<Verif
     );
   }
 
-  return { ok: true, orderId: order.id };
+  return { ok: true, orderId: order.id, kind, slug };
 }
 
 export function isValidPaystackSignature(rawBody: string, signature: string) {

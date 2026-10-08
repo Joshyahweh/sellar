@@ -18,5 +18,9 @@ export async function GET(request: Request) {
     );
   }
 
+  if (result.kind === "e_copy" && result.slug) {
+    return NextResponse.redirect(new URL(`/download?format=${encodeURIComponent(result.slug)}`, site));
+  }
+
   return NextResponse.redirect(new URL("/payment/success", site));
 }

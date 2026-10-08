@@ -1,10 +1,16 @@
+export type ReviewStatus = "pending" | "approved" | "rejected";
+
 export type BookReview = {
   id: string | null;
   authorName: string;
   rating: number;
   body: string;
   createdAt: string;
+  status: ReviewStatus;
+  rejectionReason: string | null;
 };
+
+export const reviewSelect = "id, author_name, rating, body, created_at, status, rejection_reason";
 
 const defaultBody = [
   "I actually liked reading this book. I thought it was really nice.",
@@ -17,6 +23,8 @@ export const defaultReviews: BookReview[] = ["#6155f5", "#cb30e0", "#0088ff"].ma
   rating: 5,
   body: defaultBody,
   createdAt: "2026-10-02T12:00:00.000Z",
+  status: "approved",
+  rejectionReason: null,
 }));
 
 export function reviewInitials(name: string) {
@@ -65,12 +73,19 @@ export function mapReview(row: {
   rating: number;
   body: string;
   created_at: string;
+  status?: string | null;
+  rejection_reason?: string | null;
 }): BookReview {
+  const status: ReviewStatus =
+    row.status === "pending" || row.status === "rejected" ? row.status : "approved";
+  const rejectionReason = row.rejection_reason ? String(row.rejection_reason) : null;
   return {
     id: row.id,
     authorName: row.author_name,
     rating: row.rating,
     body: row.body,
     createdAt: row.created_at,
+    status,
+    rejectionReason,
   };
 }
