@@ -6,6 +6,7 @@ import {
   CircleHelp,
   FileText,
   LayoutDashboard,
+  Mail,
   Package,
   Star,
   Users,
@@ -20,6 +21,7 @@ const links = [
   { href: "/admin/users", label: "Users", icon: Users },
   { href: "/admin/products", label: "Books", icon: BookOpen },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
+  { href: "/admin/enquiries", label: "Messages", icon: Mail },
   { href: "/admin/faqs", label: "FAQs", icon: CircleHelp },
   { href: "/admin/legal", label: "Legal pages", icon: FileText },
 ] as const;

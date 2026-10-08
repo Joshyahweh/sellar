@@ -147,6 +147,45 @@ export function readOrderStatus(value: string | null): OrderStatus | "" {
   return orderStatuses.includes(value as OrderStatus) ? (value as OrderStatus) : "";
 }
 
+export type Enquiry = {
+  id: string;
+  fullName: string;
+  email: string;
+  subject: string;
+  message: string;
+  createdAt: string;
+};
+
+export async function pageEnquiries(
+  admin: SupabaseClient,
+  filters: { page: number; q: string },
+): Promise<ListPage<Enquiry>> {
+  let query = admin
+    .from("enquiries")
+    .select("id, full_name, email, subject, message, created_at", { count: "exact" })
+    .order("created_at", { ascending: false });
+  const pattern = searchPattern(filters.q);
+  if (pattern) {
+    query = query.or(
+      `full_name.ilike.${pattern},email.ilike.${pattern},subject.ilike.${pattern},message.ilike.${pattern}`,
+    );
+  }
+  const { data, error, count } = await query.range(
+    filters.page * adminPageSize,
+    filters.page * adminPageSize + adminPageSize - 1,
+  );
+  if (error || !data) return blank(filters.page);
+  const items = data.map((row) => ({
+    id: String(row.id),
+    fullName: String(row.full_name),
+    email: String(row.email),
+    subject: String(row.subject),
+    message: String(row.message),
+    createdAt: String(row.created_at),
+  }));
+  return pageResult(items, filters.page, count ?? items.length);
+}
+
 export function readKind(value: string | null): "" | "hard_copy" | "e_copy" {
   if (value === "hard_copy" || value === "e_copy") return value;
   return "";

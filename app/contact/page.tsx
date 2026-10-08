@@ -1,25 +1,37 @@
-"use client";
-
+import { connection } from "next/server";
 import Image from "next/image";
-import {
-  CallCallingIcon,
-  DocumentTextIcon,
-  LocationIcon,
-  MessageTextIcon,
-  SmsIcon,
-  UserIcon,
-} from "@/components/icons";
+import { Suspense } from "react";
+import { EnquiryForm } from "@/components/contact/enquiry-form";
+import { CallCallingIcon, LocationIcon } from "@/components/icons";
 import { Footer } from "@/components/landing/footer";
 import { HeaderNav } from "@/components/landing/header-nav";
-import { useState } from "react";
-import { submitEnquiry } from "@/app/actions/enquiries";
-import { CtaButton } from "@/components/landing/cta-button";
-import { InputField, TextAreaField } from "@/components/ui/input-field";
+import { createClient } from "@/lib/supabase/server";
+
+async function SignedInEnquiryForm() {
+  await connection();
+  let name = "";
+  let email = "";
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.auth.getUser();
+    const user = data.user;
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email")
+        .eq("id", user.id)
+        .maybeSingle();
+      name = String(profile?.full_name ?? user.user_metadata?.full_name ?? "").trim();
+      email = String(profile?.email ?? user.email ?? "").trim();
+    }
+  } catch {
+    name = "";
+    email = "";
+  }
+  return <EnquiryForm defaultName={name} defaultEmail={email} />;
+}
 
 export default function ContactPage() {
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
   return (
     <div className="relative mx-auto w-full max-w-[1440px] bg-[#fdfdfd]">
       <section className="relative w-full overflow-x-clip desk:h-[1090px] desk:overflow-clip">
@@ -90,68 +102,9 @@ export default function ContactPage() {
               </div>
             </div>
           </div>
-          <form
-            className="flex w-full flex-col desk:w-[461px] desk:shrink-0"
-            onSubmit={async (event) => {
-              event.preventDefault();
-              setPending(true);
-              setError(null);
-              setNotice(null);
-              const result = await submitEnquiry(new FormData(event.currentTarget));
-              setPending(false);
-              if (result.error) setError(result.error);
-              if (result.message) {
-                setNotice(result.message);
-                event.currentTarget.reset();
-              }
-            }}
-          >
-            <div className="flex flex-col gap-[8px] desk:h-[88px]">
-              <h2 className="m-0 font-semibold text-[24px] leading-[100%] text-[#242428] desk:text-[28px]">
-                Enquiry Form
-              </h2>
-              <p className="font-normal text-[15px] leading-[142%] text-[#A5A5A5] desk:text-[16px]">
-                Kindly fill this form with the correct details and we would get
-                back to you as soon as possible.
-              </p>
-            </div>
-            <div className="mt-6 flex flex-col gap-6 desk:mt-[24px] desk:gap-[24px]">
-              <InputField
-                label="Full Name"
-                name="name"
-                placeholder="Enter your full name"
-                icon={<UserIcon size={20} />}
-              />
-              <InputField
-                label="Email Address"
-                name="email"
-                type="email"
-                placeholder="Enter your email address"
-                icon={<SmsIcon size={20} />}
-              />
-              <InputField
-                label="Subject"
-                name="subject"
-                placeholder="Enter the subject of your message"
-                icon={<DocumentTextIcon size={20} />}
-              />
-              <TextAreaField
-                label="Message"
-                name="message"
-                placeholder="Enter your message"
-                icon={<MessageTextIcon size={20} />}
-              />
-              {error ? (
-                <p className="font-medium text-[14px] leading-[18px] text-[#b42318]">{error}</p>
-              ) : null}
-              {notice ? (
-                <p className="font-medium text-[14px] leading-[18px] text-[#048bdc]">{notice}</p>
-              ) : null}
-              <CtaButton type="submit" disabled={pending} className="h-[56px] w-full">
-                Submit
-              </CtaButton>
-            </div>
-          </form>
+          <Suspense fallback={<EnquiryForm />}>
+            <SignedInEnquiryForm />
+          </Suspense>
         </div>
       </section>
       <div className="hidden h-[47px] w-full bg-[#fdfdfd] desk:block" />

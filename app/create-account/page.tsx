@@ -12,6 +12,7 @@ import { CtaButton } from "@/components/landing/cta-button";
 import { Footer } from "@/components/landing/footer";
 import { HeaderNav } from "@/components/landing/header-nav";
 import { InputField } from "@/components/ui/input-field";
+import { SuccessDialog } from "@/components/ui/success-dialog";
 
 export default function CreateAccountPage() {
   const [error, setError] = useState<string | null>(null);
@@ -28,17 +29,28 @@ export default function CreateAccountPage() {
             className="flex w-full max-w-[460px] flex-col desk:mt-[63px] desk:ml-[100px] desk:w-[460px]"
             onSubmit={async (event) => {
               event.preventDefault();
+              const form = event.currentTarget;
               setPending(true);
               setError(null);
               setNotice(null);
-              const formData = new FormData(event.currentTarget);
+              const formData = new FormData(form);
               formData.set("next", safeNextPath(new URLSearchParams(window.location.search).get("next")));
               const result = await signUp(formData);
               setPending(false);
               if (result?.error) setError(result.error);
-              if (result?.message) setNotice(result.message);
+              if (result?.message) {
+                form.reset();
+                setNotice(result.message);
+              }
             }}
           >
+            <SuccessDialog
+              open={Boolean(notice)}
+              title="Confirm your email"
+              message={notice ?? "Check your email to confirm your account, then sign in."}
+              onClose={() => setNotice(null)}
+              action={{ href: "/sign-in", label: "Sign in" }}
+            />
             <h1 className="m-0 font-medium text-[32px] leading-[100%] text-[#14181b] desk:text-[40px]">
               Create Account
             </h1>
@@ -86,9 +98,6 @@ export default function CreateAccountPage() {
               </label>
               {error ? (
                 <p className="font-medium text-[14px] leading-[18px] text-[#b42318]">{error}</p>
-              ) : null}
-              {notice ? (
-                <p className="font-medium text-[14px] leading-[18px] text-[#048bdc]">{notice}</p>
               ) : null}
               <CtaButton type="submit" disabled={pending} className="h-[60px] w-full">
                 Create an account
